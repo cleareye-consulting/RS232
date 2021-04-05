@@ -5,33 +5,29 @@ using System.Text;
 
 namespace RS232
 {
-    public class SerialConnection : IDisposable
+    public class OverlappedSerialConnection : ISerialConnection
     {
+
+        private const int bufferSize = 64;
+
+        private static readonly TimeSpan readTimeout = TimeSpan.FromSeconds(1);
+
         private readonly string fileName;
         private readonly int baudRate;
         private readonly Parity parity;
         private readonly int dataBits;
         private readonly StopBits stopBits;
-        private readonly int bufferSize;
-        private readonly TimeSpan readTimeout;
-        private readonly bool useOverlappedIO;
         private IntPtr fileHandle;
         private bool disposedValue;
 
-        public SerialConnection(string fileName, int baudRate, Parity parity, int dataBits, StopBits stopBits, int bufferSize,
-            TimeSpan readTimeout, bool useOverlappedIO)
+        public OverlappedSerialConnection(string portName, int baudRate, Parity parity, int dataBits, StopBits stopBits)
         {
-            this.fileName = fileName;
+            fileName = $@"\\.\{portName}";
             this.baudRate = baudRate;
             this.parity = parity;
             this.dataBits = dataBits;
             this.stopBits = stopBits;
-            this.bufferSize = bufferSize;
-            this.readTimeout = readTimeout;
-            this.useOverlappedIO = useOverlappedIO;
         }
-
-        public static string BuildFilePath(int comPortNumber) => $@"\\.\COM{comPortNumber}";
 
         public void Open()
         {
@@ -40,7 +36,7 @@ namespace RS232
                 0,
                 0,
                 SafeExternalMethods.OPEN_EXISTING,
-                useOverlappedIO ? SafeExternalMethods.FILE_FLAG_OVERLAPPED : 0,
+                SafeExternalMethods.FILE_FLAG_OVERLAPPED,
                 IntPtr.Zero);
             int errorCode;
             if (fileHandle == IntPtr.Zero)
@@ -88,18 +84,6 @@ namespace RS232
 
         public void Write(string value)
         {
-            if (useOverlappedIO)
-            {
-                WriteOverlapped(value);
-            }
-            else
-            {
-                WriteSynchronous(value);
-            }
-        }
-
-        private void WriteOverlapped(string value)
-        {
             if (value.Length > bufferSize)
             {
                 throw new ArgumentException($"Value '{value}' longer than specified buffer size of {bufferSize}", nameof(value));
@@ -142,40 +126,7 @@ namespace RS232
             }
         }
 
-        private void WriteSynchronous(string value)
-        {
-            if (value.Length > bufferSize)
-            {
-                throw new ArgumentException($"Value '{value}' longer than specified buffer size of {bufferSize}", nameof(value));
-            }
-            int errorCode;
-            var valueAsByteArray = Encoding.ASCII.GetBytes(value);
-            uint bytesWritten = 0;
-            Overlapped overlapped = default;
-            if (SafeExternalMethods.WriteFile(fileHandle, valueAsByteArray, (uint)value.Length, ref bytesWritten, ref overlapped) == 0)
-            {
-                errorCode = Marshal.GetLastWin32Error();
-                throw new InvalidOperationException($"WriteFile returned FALSE. Last Win32 error code is {errorCode}.");
-            }
-            if (bytesWritten != value.Length)
-            {
-                throw new InvalidOperationException($"Expected to write {value.Length} bytes, wrote {bytesWritten}");
-            }
-        }
-
         public string Read(int numberOfBytes)
-        {
-            if (useOverlappedIO)
-            {
-                return ReadOverlapped(numberOfBytes);
-            }
-            else
-            {
-                return ReadSynchronous(numberOfBytes);
-            }
-        }
-
-        private string ReadOverlapped(int numberOfBytes)
         {
             if (numberOfBytes > bufferSize)
             {
@@ -234,28 +185,6 @@ namespace RS232
             }
         }
 
-        private string ReadSynchronous(int numberOfBytes)
-        {
-            if (numberOfBytes > bufferSize)
-            {
-                throw new ArgumentException($"Cannot read {numberOfBytes} bytes because buffer size specified in constructor is only {bufferSize}.", nameof(numberOfBytes));
-            }
-            Overlapped overlapped = default;
-            int errorCode;
-            var buffer = new byte[numberOfBytes];
-            uint bytesRead = 0;
-            if (SafeExternalMethods.ReadFile(fileHandle, buffer, numberOfBytes, ref bytesRead, ref overlapped) == 0)
-            {
-                errorCode = Marshal.GetLastWin32Error();
-                throw new InvalidOperationException($"ReadFile returned FALSE. Last Win32 error code is {errorCode}.");
-            }
-            if (bytesRead != numberOfBytes)
-            {
-                throw new InvalidOperationException($"Expected to read {numberOfBytes}, read {bytesRead}");
-            }
-            return Encoding.ASCII.GetString(buffer);            
-        }
-
         protected virtual void Dispose(bool disposing)
         {
             if (!disposedValue)
@@ -271,7 +200,7 @@ namespace RS232
             }
         }
 
-        ~SerialConnection()
+        ~OverlappedSerialConnection()
         {
             // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
             Dispose(disposing: false);

@@ -5,12 +5,12 @@ namespace RS232
 {
 
     [StructLayout(LayoutKind.Sequential, Pack =1)]
-    public struct Overlapped
+    internal struct Overlapped
     {
-        public int Internal;
-        public int InternalHigh;
-        public int Offset;
-        public int OffsetHigh;
-        public IntPtr hEvent;
+        internal int Internal;
+        internal int InternalHigh;
+        internal int Offset;
+        internal int OffsetHigh;
+        internal IntPtr hEvent;
     }
 }

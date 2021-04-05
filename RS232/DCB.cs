@@ -4,22 +4,22 @@ using System.Runtime.InteropServices;
 namespace RS232
 {
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    public struct DCB
+    internal struct DCB
     {
-        public uint DCBlength;
-        public uint BaudRate;
-        public uint Bits1;
-        public ushort wReserved;
-        public ushort XonLim;
-        public ushort XoffLim;
-        public byte ByteSize;
-        public byte Parity;
-        public byte StopBits;
-        public char XonChar;
-        public char XoffChar;
-        public char ErrorChar;
-        public char EofChar;
-        public char EvtChar;
-        public ushort wReserved2;
+        internal uint DCBlength;
+        internal uint BaudRate;
+        internal uint Bits1;
+        internal ushort wReserved;
+        internal ushort XonLim;
+        internal ushort XoffLim;
+        internal byte ByteSize;
+        internal byte Parity;
+        internal byte StopBits;
+        internal char XonChar;
+        internal char XoffChar;
+        internal char ErrorChar;
+        internal char EofChar;
+        internal char EvtChar;
+        internal ushort wReserved2;
     }
 }
