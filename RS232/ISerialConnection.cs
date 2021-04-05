@@ -1,5 +1,5 @@
 ﻿using System;
-namespace RS232
+namespace ClearEye.RS232
 {
     public interface ISerialConnection : IDisposable
     {

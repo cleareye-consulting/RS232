@@ -1,7 +1,7 @@
 ﻿using System;
 using System.IO.Ports;
 
-namespace RS232
+namespace ClearEye.RS232
 {
     public static class SerialConnectionFactory
     {

@@ -3,7 +3,7 @@ using System.IO.Ports;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace RS232
+namespace ClearEye.RS232
 {
     public class OverlappedSerialConnection : ISerialConnection
     {
@@ -46,7 +46,7 @@ namespace RS232
             }
 
             ComStat comStat = default;
-            int errors = 0;            
+            int errors = 0;
             if (SafeExternalMethods.ClearCommError(fileHandle, ref errors, ref comStat) == 0)
             {
                 errorCode = Marshal.GetLastWin32Error();
@@ -153,7 +153,7 @@ namespace RS232
                 {
                     throw new InvalidOperationException($"Expected to read {numberOfBytes}, read {bytesRead}");
                 }
-                var overlappedResult = SafeExternalMethods.WaitForSingleObject(overlapped.hEvent, (uint) readTimeout.TotalMilliseconds);
+                var overlappedResult = SafeExternalMethods.WaitForSingleObject(overlapped.hEvent, (uint)readTimeout.TotalMilliseconds);
                 if (overlappedResult == SafeExternalMethods.WAIT_OBJECT_0)
                 {
                     uint bytesTransferred = 0;
@@ -193,7 +193,8 @@ namespace RS232
                 {
                     // TODO: dispose managed state (managed objects)
                 }
-                if (fileHandle != IntPtr.Zero) {
+                if (fileHandle != IntPtr.Zero)
+                {
                     _ = SafeExternalMethods.CloseHandle(fileHandle);
                 }
                 disposedValue = true;

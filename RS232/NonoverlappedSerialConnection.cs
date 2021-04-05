@@ -2,7 +2,7 @@
 using System.IO.Ports;
 using System.Text;
 
-namespace RS232
+namespace ClearEye.RS232
 {
     public class NonoverlappedSerialConnection : ISerialConnection
     {

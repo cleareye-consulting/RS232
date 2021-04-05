@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 
-namespace RS232
+namespace ClearEye.RS232
 {
     internal class SafeExternalMethods
     {
