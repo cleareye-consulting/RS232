@@ -1,15 +1,19 @@
-﻿using System;
+﻿using Microsoft.Win32.SafeHandles;
+using System;
 using System.Runtime.InteropServices;
+using System.Threading;
 
 namespace ClearEye.RS232
 {
-    internal class SafeExternalMethods
+    internal class SafeNativeMethods
     {
 
         internal const uint GENERIC_READ = 0x80000000;
         internal const uint GENERIC_WRITE = 0x40000000;
         internal const uint OPEN_EXISTING = 3;
         internal const uint FILE_FLAG_OVERLAPPED = 0x40000000;
+        internal const uint FILE_SHARE_READ = 0x00000001;
+        internal const uint FILE_SHARE_WRITE = 0x00000002;
 
         //See https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-clearcommerror#parameters
         internal const uint CE_BREAK = 0x0010;
@@ -30,7 +34,7 @@ namespace ClearEye.RS232
 
 
         [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-        internal static extern IntPtr CreateFile(
+        internal static extern SafeFileHandle CreateFile(
           string lpFileName,
           uint dwDesiredAccess,
           uint dwShareMode,
@@ -42,42 +46,30 @@ namespace ClearEye.RS232
         [DllImport("kernel32.dll", SetLastError = true)]
         internal static extern bool CloseHandle(IntPtr hObject);
 
-        [DllImport("kernel32.dll", SetLastError = true)]
-        internal static extern int WriteFile(
-              IntPtr hFile,
-              byte[] Buffer,
-              uint nNumberOfBytesToWrite,
-              ref uint lpNumberOfBytesWritten,
-              ref Overlapped lpOverlapped);
+        
 
-        [DllImport("kernel32.dll", SetLastError = true)]
-        internal static extern int ReadFile(
-          IntPtr hFile,
-          [Out] byte[] Buffer,
-          int nNumberOfBytesToRead,
-          ref uint lpNumberOfBytesRead,
-          ref Overlapped lpOverlapped);
+        
 
         [DllImport("kernel32.dll", SetLastError = true)]
         internal static extern int ClearCommError(
-          IntPtr hFile,
+          SafeHandle hFile,
           ref int lpErrors,
           ref ComStat lpComStat);
 
         [DllImport("kernel32.dll", SetLastError = true)]
-        internal static extern int PurgeComm(IntPtr hFile, uint dwFlags);
+        internal static extern int PurgeComm(SafeHandle hFile, uint dwFlags);
 
         [DllImport("kernel32.dll", SetLastError = true)]
-        internal static extern int GetCommState(IntPtr hCommDev, ref DCB lpDCB);
+        internal static extern int GetCommState(SafeHandle hCommDev, ref DCB lpDCB);
 
         [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         internal static extern int BuildCommDCB(string lpDef, ref DCB lpDCB);
 
         [DllImport("kernel32.dll", SetLastError = true)]
-        internal static extern int SetCommState(IntPtr hCommDev, ref DCB lpDCB);
+        internal static extern int SetCommState(SafeHandle hCommDev, ref DCB lpDCB);
 
         [DllImport("kernel32.dll", SetLastError = true)]
-        internal static extern int SetupComm(IntPtr hFile, uint dwInQueue, uint dwOutQueue);
+        internal static extern int SetupComm(SafeHandle hFile, uint dwInQueue, uint dwOutQueue);
 
         [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         internal static extern IntPtr CreateEvent(
@@ -86,12 +78,7 @@ namespace ClearEye.RS232
           int bInitialState,
           string lpName);
 
-        [DllImport("kernel32.dll", SetLastError = true)]
-        internal static extern int GetOverlappedResult(
-         IntPtr hFile,
-         ref Overlapped lpOverlapped,
-         ref uint lpNumberOfBytesTransferred,
-         int bWait);
+        
 
         [DllImport("kernel32.dll", SetLastError = true)]
         internal static extern uint WaitForSingleObject(IntPtr hHandle, uint dwMilliseconds);

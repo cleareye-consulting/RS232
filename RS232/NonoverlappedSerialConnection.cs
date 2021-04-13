@@ -13,6 +13,8 @@ namespace ClearEye.RS232
         public NonoverlappedSerialConnection(string portName, int baudRate, Parity parity, int dataBits, StopBits stopBits)
         {
             serialPort = new SerialPort(portName, baudRate, parity, dataBits, stopBits);
+            serialPort.WriteTimeout = 1000; //ms
+            serialPort.ReadTimeout = 1000; //ms
         }
 
         public void Open()
