@@ -118,52 +118,30 @@ namespace ClearEye.RS232
             }
             int errorCode;
             var overlapped = new Overlapped();
-            try
+
+            NativeOverlapped* nativeOverlapped = overlapped.Pack(WriteCompletionCallback, null);
+            var valueAsByteArray = Encoding.ASCII.GetBytes(value);
+            uint bytesWritten = 0;
+            if (UnsafeNativeMethods.WriteFile(fileHandle, valueAsByteArray, (uint)value.Length, ref bytesWritten, nativeOverlapped) == 0)
             {
-                overlapped.EventHandleIntPtr = SafeNativeMethods.CreateEvent(IntPtr.Zero, 1, 0, null);
-                NativeOverlapped* nativeOverlapped = overlapped.Pack(WriteCompletionCallback, null);
-                var valueAsByteArray = Encoding.ASCII.GetBytes(value);
-                uint bytesWritten = 0;
-                if (UnsafeNativeMethods.WriteFile(fileHandle, valueAsByteArray, (uint)value.Length, ref bytesWritten, nativeOverlapped) == 0)
-                {
-                    errorCode = Marshal.GetLastWin32Error();
-                    throw new InvalidOperationException($"WriteFile returned FALSE. Last Win32 error code is {errorCode}.");
-                }
-                if (bytesWritten != value.Length)
-                {
-                    throw new InvalidOperationException($"Expected to write {value.Length} bytes, wrote {bytesWritten}");
-                }
-                var overlappedResult = SafeNativeMethods.WaitForSingleObject(overlapped.EventHandleIntPtr, 1000);
-                if (overlappedResult == SafeNativeMethods.WAIT_OBJECT_0)
-                {
-                    uint bytesTransferred = 0;
-                    if (UnsafeNativeMethods.GetOverlappedResult(fileHandle, nativeOverlapped, ref bytesTransferred, 1) == 0)
-                    {
-                        errorCode = Marshal.GetLastWin32Error();
-                        throw new InvalidOperationException($"GetOverlappedResult returned FALSE. Last Win32 error code is {errorCode}.");
-                    }
-                    if (bytesTransferred != value.Length)
-                    {
-                        throw new InvalidOperationException($"Expected to transfer {value.Length}, transferred {bytesTransferred}");
-                    }
-                    return;
-                }
-                if (overlappedResult == SafeNativeMethods.WAIT_TIMEOUT)
-                {
-                    throw new TimeoutException("Timeout on overlapped write");
-                }
                 errorCode = Marshal.GetLastWin32Error();
-                throw new InvalidOperationException($"WaitForSingleObject returned WAIT_FAILED. Last Win32 error code is {errorCode}.");
-
+                throw new InvalidOperationException($"WriteFile returned FALSE. Last Win32 error code is {errorCode}.");
             }
-            finally
+            if (bytesWritten != value.Length)
             {
-                if (overlapped.EventHandleIntPtr != IntPtr.Zero)
-                {
-                    _ = SafeNativeMethods.CloseHandle(overlapped.EventHandleIntPtr);
-                }
+                throw new InvalidOperationException($"Expected to write {value.Length} bytes, wrote {bytesWritten}");
             }
-
+            uint bytesTransferred = 0;
+            if (UnsafeNativeMethods.GetOverlappedResult(fileHandle, nativeOverlapped, ref bytesTransferred, 1) == 0)
+            {
+                errorCode = Marshal.GetLastWin32Error();
+                throw new InvalidOperationException($"GetOverlappedResult returned FALSE. Last Win32 error code is {errorCode}.");
+            }
+            if (bytesTransferred != value.Length)
+            {
+                throw new InvalidOperationException($"Expected to transfer {value.Length}, transferred {bytesTransferred}");
+            }
+            return;
         }
 
         unsafe public string Read(int numberOfBytes)
@@ -172,56 +150,32 @@ namespace ClearEye.RS232
             {
                 throw new ArgumentException($"Cannot read {numberOfBytes} bytes because buffer size specified in constructor is only {bufferSize}.", nameof(numberOfBytes));
             }
-            var overlapped = new Overlapped();            
-            try
+            var overlapped = new Overlapped();
+            NativeOverlapped* nativeOverlapped = overlapped.Pack(ReadCompletionCallback, null);
+            int errorCode;
+            var buffer = new byte[numberOfBytes];
+            uint bytesRead = 0;
+            if (UnsafeNativeMethods.ReadFile(fileHandle, buffer, numberOfBytes, ref bytesRead, nativeOverlapped) == 0)
             {
-                overlapped.EventHandleIntPtr = SafeNativeMethods.CreateEvent(IntPtr.Zero, 1, 0, null);
-                NativeOverlapped* nativeOverlapped = overlapped.Pack(ReadCompletionCallback, null);
-                int errorCode;
-                var buffer = new byte[numberOfBytes];
-                uint bytesRead = 0;
-                if (UnsafeNativeMethods.ReadFile(fileHandle, buffer, numberOfBytes, ref bytesRead, nativeOverlapped) == 0)
-                {
-                    errorCode = Marshal.GetLastWin32Error();
-                    throw new InvalidOperationException($"ReadFile returned FALSE. Last Win32 error code is {errorCode}.");
-                }
-                if (bytesRead != numberOfBytes)
-                {
-                    throw new InvalidOperationException($"Expected to read {numberOfBytes}, read {bytesRead}");
-                }
-                var overlappedResult = SafeNativeMethods.WaitForSingleObject(overlapped.EventHandleIntPtr, 1000);
-                if (overlappedResult == SafeNativeMethods.WAIT_OBJECT_0)
-                {
-                    uint bytesTransferred = 0;
-                    if (UnsafeNativeMethods.GetOverlappedResult(fileHandle, nativeOverlapped, ref bytesTransferred, 1) == 0)
-                    {
-                        errorCode = Marshal.GetLastWin32Error();
-                        throw new InvalidOperationException($"GetOverlappedResult returned FALSE. Last Win32 error code is {errorCode}.");
-                    }
-                    if (bytesTransferred != numberOfBytes)
-                    {
-                        throw new InvalidOperationException($"Expected to transfer {numberOfBytes} bytes, transferred {bytesTransferred}");
-                    }
-                    return Encoding.ASCII.GetString(buffer);
-                }
-                if (overlappedResult == SafeNativeMethods.WAIT_TIMEOUT)
-                {
-                    throw new TimeoutException("Timeout reading from overlapped structure");
-                }
-                if (overlappedResult == SafeNativeMethods.WAIT_FAILED)
-                {
-                    errorCode = Marshal.GetLastWin32Error();
-                    throw new InvalidOperationException($"WaitForSingleObjected returned WAIT_FAILED. Last Win32 error code is {errorCode}.");
-                }
-                throw new InvalidOperationException("Unexpected error occurred in read");
+                errorCode = Marshal.GetLastWin32Error();
+                throw new InvalidOperationException($"ReadFile returned FALSE. Last Win32 error code is {errorCode}.");
             }
-            finally
+            if (bytesRead != numberOfBytes)
             {
-                if (overlapped.EventHandleIntPtr != IntPtr.Zero)
-                {
-                    _ = SafeNativeMethods.CloseHandle(overlapped.EventHandleIntPtr);
-                }
+                throw new InvalidOperationException($"Expected to read {numberOfBytes}, read {bytesRead}");
             }
+
+            uint bytesTransferred = 0;
+            if (UnsafeNativeMethods.GetOverlappedResult(fileHandle, nativeOverlapped, ref bytesTransferred, 1) == 0)
+            {
+                errorCode = Marshal.GetLastWin32Error();
+                throw new InvalidOperationException($"GetOverlappedResult returned FALSE. Last Win32 error code is {errorCode}.");
+            }
+            if (bytesTransferred != numberOfBytes)
+            {
+                throw new InvalidOperationException($"Expected to transfer {numberOfBytes} bytes, transferred {bytesTransferred}");
+            }
+            return Encoding.ASCII.GetString(buffer);
         }
 
         protected virtual void Dispose(bool disposing)
