@@ -31,6 +31,9 @@ namespace ClearEye.RS232
         internal const uint WAIT_TIMEOUT = 0x00000102;
         internal const uint WAIT_FAILED = 0xFFFFFFFF;
 
+        internal const uint ERROR_IO_PENDING = 0x3E5;
+            
+
 
 
         [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]

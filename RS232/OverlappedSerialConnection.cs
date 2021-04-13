@@ -88,26 +88,12 @@ namespace ClearEye.RS232
 
         unsafe void WriteCompletionCallback(uint errorCode, uint numBytes, NativeOverlapped* nativeOverlapped)
         {
-            try
-            {
-                // ...
-            }
-            finally
-            {
-                Overlapped.Unpack(nativeOverlapped);
-                Overlapped.Free(nativeOverlapped);
-            }
+            Overlapped.Free(nativeOverlapped);
         }
 
         unsafe void ReadCompletionCallback(uint errorCode, uint numBytes, NativeOverlapped *nativeOverlapped)
         {
-            try
-            {
-                var overlapped = Overlapped.Unpack(nativeOverlapped);
-            }
-            finally
-            {   Overlapped.Free(nativeOverlapped);
-            }
+            Overlapped.Free(nativeOverlapped);
         }
 
         unsafe public void Write(string value)
@@ -120,28 +106,40 @@ namespace ClearEye.RS232
             var overlapped = new Overlapped();
 
             NativeOverlapped* nativeOverlapped = overlapped.Pack(WriteCompletionCallback, null);
-            var valueAsByteArray = Encoding.ASCII.GetBytes(value);
-            uint bytesWritten = 0;
-            if (UnsafeNativeMethods.WriteFile(fileHandle, valueAsByteArray, (uint)value.Length, ref bytesWritten, nativeOverlapped) == 0)
+            try
             {
+                var valueAsByteArray = Encoding.ASCII.GetBytes(value);
+                uint bytesWritten = 0;
+                var writeFileResult = UnsafeNativeMethods.WriteFile(fileHandle, valueAsByteArray, (uint)value.Length, ref bytesWritten, nativeOverlapped);
                 errorCode = Marshal.GetLastWin32Error();
-                throw new InvalidOperationException($"WriteFile returned FALSE. Last Win32 error code is {errorCode}.");
+                if (writeFileResult != 0)
+                {
+                    if (bytesWritten != value.Length)
+                    {
+                        throw new InvalidOperationException($"Expected to write {value.Length} bytes, wrote {bytesWritten}");
+                    }
+                    return; //write was successful
+                }
+                if (errorCode == SafeNativeMethods.ERROR_IO_PENDING)
+                {
+                    uint bytesTransferred = 0;
+                    if (UnsafeNativeMethods.GetOverlappedResult(fileHandle, nativeOverlapped, ref bytesTransferred, 1) == 0)
+                    {
+                        errorCode = Marshal.GetLastWin32Error();
+                        throw new InvalidOperationException($"GetOverlappedResult returned FALSE. Last Win32 error code is {errorCode}.");
+                    }
+                    if (bytesTransferred != value.Length)
+                    {
+                        throw new InvalidOperationException($"Expected to transfer {value.Length}, transferred {bytesTransferred}");
+                    }
+                    return;
+                }
+                throw new InvalidOperationException($"WriteFile returned FALSE. Last Win32 error code is {errorCode}");                
             }
-            if (bytesWritten != value.Length)
+            finally
             {
-                throw new InvalidOperationException($"Expected to write {value.Length} bytes, wrote {bytesWritten}");
+                Overlapped.Free(nativeOverlapped);
             }
-            uint bytesTransferred = 0;
-            if (UnsafeNativeMethods.GetOverlappedResult(fileHandle, nativeOverlapped, ref bytesTransferred, 1) == 0)
-            {
-                errorCode = Marshal.GetLastWin32Error();
-                throw new InvalidOperationException($"GetOverlappedResult returned FALSE. Last Win32 error code is {errorCode}.");
-            }
-            if (bytesTransferred != value.Length)
-            {
-                throw new InvalidOperationException($"Expected to transfer {value.Length}, transferred {bytesTransferred}");
-            }
-            return;
         }
 
         unsafe public string Read(int numberOfBytes)
@@ -152,30 +150,42 @@ namespace ClearEye.RS232
             }
             var overlapped = new Overlapped();
             NativeOverlapped* nativeOverlapped = overlapped.Pack(ReadCompletionCallback, null);
-            int errorCode;
-            var buffer = new byte[numberOfBytes];
-            uint bytesRead = 0;
-            if (UnsafeNativeMethods.ReadFile(fileHandle, buffer, numberOfBytes, ref bytesRead, nativeOverlapped) == 0)
+            try
             {
+                int errorCode;
+                var buffer = new byte[numberOfBytes];
+                uint bytesRead = 0;
+                var readFileResult = UnsafeNativeMethods.ReadFile(fileHandle, buffer, numberOfBytes, ref bytesRead, nativeOverlapped);
                 errorCode = Marshal.GetLastWin32Error();
-                throw new InvalidOperationException($"ReadFile returned FALSE. Last Win32 error code is {errorCode}.");
-            }
-            if (bytesRead != numberOfBytes)
-            {
-                throw new InvalidOperationException($"Expected to read {numberOfBytes}, read {bytesRead}");
-            }
+                if (readFileResult != 0)
+                {
+                    if (bytesRead != numberOfBytes)
+                    {
+                        throw new InvalidOperationException($"Expected to read {numberOfBytes}, read {bytesRead}");
+                    }
+                    return Encoding.ASCII.GetString(buffer);
+                }
+                if (errorCode == SafeNativeMethods.ERROR_IO_PENDING)
+                {
+                    uint bytesTransferred = 0;
+                    if (UnsafeNativeMethods.GetOverlappedResult(fileHandle, nativeOverlapped, ref bytesTransferred, 1) == 0)
+                    {
+                        errorCode = Marshal.GetLastWin32Error();
+                        throw new InvalidOperationException($"GetOverlappedResult returned FALSE. Last Win32 error code is {errorCode}.");
+                    }
+                    if (bytesTransferred != numberOfBytes)
+                    {
+                        throw new InvalidOperationException($"Expected to transfer {numberOfBytes} bytes, transferred {bytesTransferred}");
+                    }
+                    return Encoding.ASCII.GetString(buffer);
+                }
+                throw new InvalidOperationException($"ReadFile returned FALSE. Last Win32 error code is {errorCode}");
 
-            uint bytesTransferred = 0;
-            if (UnsafeNativeMethods.GetOverlappedResult(fileHandle, nativeOverlapped, ref bytesTransferred, 1) == 0)
-            {
-                errorCode = Marshal.GetLastWin32Error();
-                throw new InvalidOperationException($"GetOverlappedResult returned FALSE. Last Win32 error code is {errorCode}.");
             }
-            if (bytesTransferred != numberOfBytes)
+            finally
             {
-                throw new InvalidOperationException($"Expected to transfer {numberOfBytes} bytes, transferred {bytesTransferred}");
+                Overlapped.Free(nativeOverlapped);
             }
-            return Encoding.ASCII.GetString(buffer);
         }
 
         protected virtual void Dispose(bool disposing)
